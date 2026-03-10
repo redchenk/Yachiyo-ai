@@ -1,14 +1,103 @@
 {
-  "name": "yakumo-ai",
+  "name": "yachiyo-ai",
   "version": "1.0.0",
-  "description": "八千代 AI 虚拟主播 - 内置 Live2D 渲染，全 API 可自定义",
-  "main": "src/index.js",
-  "type": "module",
+  "description": "🌙 月见八千代 AI 虚拟主播 - 内置 Live2D 渲染，全 API 可自定义",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "web": "node src/web/server.js",
-    "install:live2d": "node scripts/install-live2d.js"
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run web\" \"wait-on http://localhost:8080 && electron .\"",
+    "web": "http-server -p 8080 -c-1",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "release": "electron-builder -p always"
+  },
+  "build": {
+    "appId": "ai.yachiyo.vtuber",
+    "productName": "Yachiyo AI",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "demo.html",
+      "src/**/*",
+      "models/**/*",
+      "config/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "demo.html",
+        "to": "demo.html"
+      },
+      {
+        "from": "models",
+        "to": "models",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "electron/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "月见八千代"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "electron/icons/icon.icns",
+      "category": "public.app-category.entertainment"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "electron/icons",
+      "category": "Utility"
+    }
   },
   "dependencies": {
     "ws": "^8.16.0",
@@ -21,6 +110,10 @@
     "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0",
+    "http-server": "^14.1.1"
   }
 }

@@ -601,6 +601,23 @@
   </div>
   
   <script type="module">
+    // ==================== Electron 支持 ====================
+    const isElectron = window.electronAPI || window.platform?.isElectron;
+    
+    if (isElectron) {
+      console.log('🔌 运行在 Electron 环境中');
+      
+      // 监听重置配置
+      if (window.electronAPI?.onResetConfig) {
+        window.electronAPI.onResetConfig(() => {
+          if (confirm('确定要重置所有配置吗？')) {
+            localStorage.removeItem('yachiyo_config');
+            location.reload();
+          }
+        });
+      }
+    }
+    
     // ==================== 配置管理 ====================
     const defaultConfig = {
       api: {
@@ -610,7 +627,7 @@
         model: 'qwen2.5:72b'
       },
       live2d: {
-        modelPath: './models/yakumo',
+        modelPath: isElectron ? 'models/yakumo' : './models/yakumo',
         modelFile: 'yakumo.model3.json'
       }
     };
