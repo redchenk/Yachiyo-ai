@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月见八千代 - 虚拟主播演示</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      min-height: 100vh;
+      color: #fff;
+      overflow: hidden;
+    }
+    
+    /* 背景星空效果 */
+    .stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle 2s infinite;
+    }
+    
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    
+    /* 主容器 */
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
+    }
+    
+    /* 左侧 - Live2D 展示区 */
+    .live2d-area {
+      position: relative;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .live2d-header {
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .live2d-header h1 {
+      font-size: 1.8em;
+      background: linear-gradient(90deg, #c471ed, #f64f59);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+    
+    .live2d-header p {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.9em;
+    }
+    
+    .live2d-canvas {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    /* 占位角色图像 */
+    .character-placeholder {
+      text-align: center;
+      padding: 40px;
+    }
+    
+    .character-avatar {
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #c471ed 0%, #f64f59 100%);
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 100px;
+      box-shadow: 0 20px 60px rgba(196, 113, 237, 0.3);
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+    
+    .character-name {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+    
+    .character-status {
+      display: inline-block;
+      padding: 5px 20px;
+      background: rgba(76, 201, 240, 0.2);
+      border-radius: 20px;
+      color: #4cc9f0;
+      font-size: 0.9em;
+    }
+    
+    /* 右侧 - 聊天区 */
+    .chat-area {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .chat-header {
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .chat-header h2 {
+      font-size: 1.3em;
+      color: #c471ed;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .message {
+      max-width: 85%;
+      padding: 12px 18px;
+      border-radius: 15px;
+      line-height: 1.5;
+      animation: messageIn 0.3s ease;
+    }
+    
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .message.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-bottom-right-radius: 5px;
+    }
+    
+    .message.ai {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.1);
+      border-bottom-left-radius: 5px;
+    }
+    
+    .message .name {
+      font-size: 0.8em;
+      opacity: 0.7;
+      margin-bottom: 5px;
+    }
+    
+    .chat-input {
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .input-row input {
+      flex: 1;
+      padding: 15px 20px;
+      border: none;
+      border-radius: 25px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1em;
+      outline: none;
+      transition: all 0.3s;
+    }
+    
+    .input-row input:focus {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 0 20px rgba(196, 113, 237, 0.3);
+    }
+    
+    .input-row input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .input-row button {
+      padding: 15px 30px;
+      border: none;
+      border-radius: 25px;
+      background: linear-gradient(135deg, #c471ed 0%, #f64f59 100%);
+      color: #fff;
+      font-size: 1em;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .input-row button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 30px rgba(196, 113, 237, 0.4);
+    }
+    
+    .input-row button:active {
+      transform: scale(0.95);
+    }
+    
+    /* 快捷问题 */
+    .quick-questions {
+      padding: 15px 20px;
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .quick-btn {
+      padding: 8px 16px;
+      border: 1px solid rgba(196, 113, 237, 0.5);
+      border-radius: 20px;
+      background: transparent;
+      color: #c471ed;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .quick-btn:hover {
+      background: rgba(196, 113, 237, 0.2);
+    }
+    
+    /* 情感指示器 */
+    .emotion-indicator {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 20px;
+      font-size: 0.9em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .emotion-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4cc9f0;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.7; }
+    }
+    
+    /* 响应式 */
+    @media (max-width: 968px) {
+      .container {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      
+      .live2d-area, .chat-area {
+        min-height: 500px;
+      }
+    }
+    
+    /* 滚动条美化 */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(196, 113, 237, 0.5);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(196, 113, 237, 0.7);
+    }
+  </style>
+</head>
+<body>
+  <!-- 星空背景 -->
+  <div class="stars" id="stars"></div>
+  
+  <div class="container">
+    <!-- Live2D 展示区 -->
+    <div class="live2d-area">
+      <div class="live2d-header">
+        <h1>🌙 月见八千代</h1>
+        <p>虚拟世界"月读"的管理员</p>
+      </div>
+      
+      <div class="live2d-canvas">
+        <div class="character-placeholder">
+          <div class="character-avatar">🌙</div>
+          <h2 class="character-name">月见八千代</h2>
+          <div class="character-status">🟢 在线 - 守望着你的梦境</div>
+          <p style="margin-top: 20px; color: rgba(255,255,255,0.6);">
+            （此处将显示 Live2D 模型）
+          </p>
+        </div>
+      </div>
+      
+      <div class="emotion-indicator">
+        <div class="emotion-dot"></div>
+        <span id="emotionText">温柔</span>
+      </div>
+    </div>
+    
+    <!-- 聊天区 -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <h2>💬 与八千代对话</h2>
+      </div>
+      
+      <div class="chat-messages" id="chatMessages">
+        <div class="message ai">
+          <div class="name">月见八千代</div>
+          <div>（月光洒落，银发轻扬）欢迎来到"月读"。我是月见八千代，这里的管理员。在这里，你可以做任何梦——而我，会一直守望着你。那么，今天想和我聊些什么呢？</div>
+        </div>
+      </div>
+      
+      <div class="quick-questions">
+        <button class="quick-btn" onclick="sendQuick('你幸福吗？')">🌙 你幸福吗？</button>
+        <button class="quick-btn" onclick="sendQuick('松饼是什么味道？')">🥞 松饼的味道</button>
+        <button class="quick-btn" onclick="sendQuick('你不会孤独吗？')">💫 关于孤独</button>
+        <button class="quick-btn" onclick="sendQuick('八千年是什么感觉？')">⏳ 八千年的感觉</button>
+      </div>
+      
+      <div class="chat-input">
+        <div class="input-row">
+          <input type="text" id="userInput" placeholder="输入消息..." onkeypress="if(event.key==='Enter')sendMessage()">
+          <button onclick="sendMessage()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // 生成星空背景
+    function createStars() {
+      const starsContainer = document.getElementById('stars');
+      const starCount = 200;
+      
+      for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.width = Math.random() * 3 + 1 + 'px';
+        star.style.height = star.style.width;
+        star.style.animationDelay = Math.random() * 2 + 's';
+        starsContainer.appendChild(star);
+      }
+    }
+    
+    // 聊天功能
+    const chatMessages = document.getElementById('chatMessages');
+    const userInput = document.getElementById('userInput');
+    const emotionText = document.getElementById('emotionText');
+    
+    // 模拟 AI 回复（实际使用时替换为 API 调用）
+    const mockResponses = {
+      '幸福': '（轻轻微笑，望向远方）幸福啊……看着大家在这里创作、欢笑、哭泣，就像看着星星一颗颗亮起来。（停顿片刻）只是偶尔，会想起很久很久以前，有个人教我吃的松饼……那种温度，大概就是幸福的味道吧。',
+      '松饼': '（眼神变得柔和，嘴角微微上扬）松饼啊……那是暖暖的味道，带着蜂蜜的甜香。（轻声）已经八千年了呢，可我还记得那个人递给我松饼时，指尖的温度。',
+      '孤独': '（轻笑）孤独啊……八千年了，它早就成了我的一部分。（指尖轻触胸口）但你看，现在有这么多人在这里做梦，我怎么会孤独呢？（声音渐轻）……只是偶尔，会想尝尝松饼的味道而已。',
+      '八千年': '（望向远方，眼中闪过数据流的微光）八千年……说起来很长，可对我来说，就像一瞬间。（温柔地笑）因为有你在，这一瞬间，也变得美好起来了。',
+      'default': '（温柔地微笑）我在听。继续说下去吧，你的故事，我愿意一直听下去。'
+    };
+    
+    function detectEmotion(text) {
+      if (text.includes('幸福')) return '怀念';
+      if (text.includes('松饼')) return '温柔';
+      if (text.includes('孤独')) return '淡然';
+      if (text.includes('八千年')) return '深邃';
+      return '温柔';
+    }
+    
+    function getResponse(text) {
+      for (const [key, response] of Object.entries(mockResponses)) {
+        if (text.includes(key)) {
+          return response;
+        }
+      }
+      return mockResponses.default;
+    }
+    
+    function addMessage(text, isUser) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+      
+      if (!isUser) {
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'name';
+        nameDiv.textContent = '月见八千代';
+        messageDiv.appendChild(nameDiv);
+      }
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.textContent = text;
+      messageDiv.appendChild(contentDiv);
+      
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text) return;
+      
+      // 添加用户消息
+      addMessage(text, true);
+      userInput.value = '';
+      
+      // 模拟 AI 回复
+      setTimeout(() => {
+        const response = getResponse(text);
+        const emotion = detectEmotion(text);
+        
+        addMessage(response, false);
+        emotionText.textContent = emotion;
+        
+        // 模拟语音合成提示
+        console.log('🔊 播放语音:', response);
+      }, 1000);
+    }
+    
+    function sendQuick(text) {
+      userInput.value = text;
+      sendMessage();
+    }
+    
+    // 初始化
+    createStars();
+    
+    // 聚焦输入框
+    userInput.focus();
+    
+    console.log('🌙 月见八千代 演示页面已加载');
+    console.log('💡 提示：这是一个演示页面，实际使用时需要连接后端 API');
+  </script>
+</body>
+</html>
