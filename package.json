@@ -26,7 +26,9 @@
       "demo.html",
       "src/**/*",
       "models/**/*",
-      "config/**/*"
+      "config/**/*",
+      "docs/**/*",
+      "package.json"
     ],
     "extraResources": [
       {
@@ -34,10 +36,30 @@
         "to": "demo.html"
       },
       {
+        "from": "src",
+        "to": "src",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "config",
+        "to": "config",
+        "filter": ["**/*"]
+      },
+      {
         "from": "models",
         "to": "models",
         "filter": ["**/*"]
+      },
+      {
+        "from": "docs",
+        "to": "docs",
+        "filter": ["**/*"]
       }
+    ],
+    "asarUnpack": [
+      "demo.html",
+      "models/**/*",
+      "config/**/*"
     ],
     "win": {
       "target": [

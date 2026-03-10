@@ -1,26 +1,28 @@
-# Dependencies
+# 忽略构建产物和临时文件
+dist/
+out/
 node_modules/
-__pycache__/
-*.pyc
-.venv/
-venv/
 
-# Config (with secrets)
+# 配置文件（含密钥）
 config/config.json
 
-# Output
-output/
+# 日志
 *.log
+logs/
 
-# OS
+# 系统文件
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Temporary
+# 临时文件
 tmp/
 temp/
 *.tmp
+*.bak
