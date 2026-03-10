@@ -137,5 +137,9 @@
     "concurrently": "^8.2.2",
     "wait-on": "^7.2.0",
     "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
