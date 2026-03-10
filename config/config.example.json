@@ -48,9 +48,11 @@
     "auth": "offline"
   },
   "system": {
-    "name": "八千代",
-    "personality": "温柔、聪明、有点调皮",
+    "name": "月见八千代",
+    "nickname": "八千代",
+    "personality": "温柔、通透、孤独的守望者",
     "language": "zh",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "characterFile": "./docs/YACHIYO_CHARACTER.md"
   }
 }
