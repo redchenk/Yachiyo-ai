@@ -1,0 +1,25 @@
+# 语音识别
+faster-whisper>=1.0.0
+speechrecognition>=3.10.0
+pyaudio>=0.2.14
+
+# 语音合成
+cosyvoice>=0.1.0
+# 或
+# fish-speech>=1.0.0
+
+# 视觉识别
+transformers>=4.37.0
+torch>=2.1.0
+torchvision>=0.16.0
+qwen-vl-utils>=0.1.0
+
+# 通用
+numpy>=1.24.0
+pillow>=10.0.0
+opencv-python>=4.9.0
+
+# API 服务
+fastapi>=0.109.0
+uvicorn>=0.27.0
+websockets>=12.0

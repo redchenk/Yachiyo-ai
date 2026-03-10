@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>八千代 - 控制台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    h1 {
+      font-size: 2.5em;
+      background: linear-gradient(90deg, #ff6b9d, #c44569);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .status {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 5px 15px;
+      background: rgba(0,255,0,0.2);
+      border-radius: 20px;
+      font-size: 0.9em;
+    }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    
+    .panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .panel h2 {
+      margin-bottom: 15px;
+      font-size: 1.3em;
+      color: #ff6b9d;
+    }
+    
+    .chat-box {
+      height: 300px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .message {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    
+    .message.user {
+      background: rgba(255,107,157,0.2);
+      margin-left: 20%;
+    }
+    
+    .message.ai {
+      background: rgba(100,200,255,0.2);
+      margin-right: 20%;
+    }
+    
+    .input-area {
+      display: flex;
+      gap: 10px;
+    }
+    
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 1em;
+    }
+    
+    input[type="text"]:focus {
+      outline: 2px solid #ff6b9d;
+    }
+    
+    button {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #ff6b9d, #c44569);
+      color: #fff;
+      font-size: 1em;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    button:hover {
+      transform: scale(1.05);
+    }
+    
+    .emotion-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    
+    .emotion-btn {
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .emotion-btn:hover, .emotion-btn.active {
+      background: rgba(255,107,157,0.3);
+      border-color: #ff6b9d;
+    }
+    
+    .log-box {
+      height: 200px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.85em;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-left: 3px solid #ff6b9d;
+      padding-left: 10px;
+    }
+    
+    @media (max-width: 768px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌸 八千代控制台</h1>
+      <div class="status" id="status">🟢 已连接</div>
+    </header>
+    
+    <div class="main-grid">
+      <!-- 聊天面板 -->
+      <div class="panel">
+        <h2>💬 聊天</h2>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-area">
+          <input type="text" id="inputText" placeholder="输入消息..." onkeypress="if(event.key==='Enter')sendMessage()">
+          <button onclick="sendMessage()">发送</button>
+        </div>
+      </div>
+      
+      <!-- 表情控制 -->
+      <div class="panel">
+        <h2>🎭 表情控制</h2>
+        <div class="emotion-grid">
+          <button class="emotion-btn" onclick="setExpression('neutral')">😐 中性</button>
+          <button class="emotion-btn" onclick="setExpression('happy')">😊 开心</button>
+          <button class="emotion-btn" onclick="setExpression('surprised')">😲 惊讶</button>
+          <button class="emotion-btn" onclick="setExpression('thinking')">🤔 思考</button>
+          <button class="emotion-btn" onclick="setExpression('sad')">😢 难过</button>
+          <button class="emotion-btn" onclick="setExpression('angry')">😠 生气</button>
+        </div>
+        
+        <h2 style="margin-top: 20px;">🎮 快速动作</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button onclick="playMotion('idle', 1)">待机动作</button>
+          <button onclick="playMotion('tap', 1)">点击反应</button>
+          <button onclick="playMotion('shake', 1)">摇头</button>
+          <button onclick="playMotion('nod', 1)">点头</button>
+        </div>
+      </div>
+      
+      <!-- 日志面板 -->
+      <div class="panel" style="grid-column: 1 / -1;">
+        <h2>📋 系统日志</h2>
+        <div class="log-box" id="logBox"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let ws;
+    const chatBox = document.getElementById('chatBox');
+    const logBox = document.getElementById('logBox');
+    const statusEl = document.getElementById('status');
+    
+    function connect() {
+      ws = new WebSocket('ws://localhost:3000/ws');
+      
+      ws.onopen = () => {
+        statusEl.textContent = '🟢 已连接';
+        log('已连接到服务器');
+      };
+      
+      ws.onclose = () => {
+        statusEl.textContent = '🔴 已断开';
+        log('连接已断开，5 秒后重连...');
+        setTimeout(connect, 5000);
+      };
+      
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      };
+    }
+    
+    function handleMessage(msg) {
+      log(`收到：${msg.type}`, msg);
+      
+      switch(msg.type) {
+        case 'response':
+          addMessage('ai', msg.text || '...');
+          break;
+        case 'expression':
+          log(`表情切换：${msg.expression}`);
+          highlightEmotion(msg.expression);
+          break;
+        case 'audio':
+          log(`播放音频：${msg.path}`);
+          const audio = new Audio(msg.path);
+          audio.play();
+          break;
+        case 'speaking':
+          log(`说话状态：${msg.value}`);
+          break;
+      }
+    }
+    
+    function sendMessage() {
+      const input = document.getElementById('inputText');
+      const text = input.value.trim();
+      
+      if (!text || !ws) return;
+      
+      addMessage('user', text);
+      ws.send(JSON.stringify({
+        type: 'user_input',
+        text: text
+      }));
+      
+      input.value = '';
+    }
+    
+    function addMessage(type, text) {
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      div.textContent = text;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    
+    function setExpression(emotion) {
+      if (!ws) return;
+      ws.send(JSON.stringify({
+        type: 'set_expression',
+        expression: emotion
+      }));
+      log(`设置表情：${emotion}`);
+      highlightEmotion(emotion);
+    }
+    
+    function playMotion(group, id) {
+      if (!ws) return;
+      ws.send(JSON.stringify({
+        type: 'play_motion',
+        group: group,
+        id: id
+      }));
+      log(`播放动作：${group}_${id}`);
+    }
+    
+    function highlightEmotion(emotion) {
+      document.querySelectorAll('.emotion-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(emotion)) {
+          btn.classList.add('active');
+        }
+      });
+    }
+    
+    function log(message, data) {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      const time = new Date().toLocaleTimeString();
+      div.textContent = `[${time}] ${message}`;
+      if (data) {
+        div.title = JSON.stringify(data, null, 2);
+      }
+      logBox.appendChild(div);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+    
+    // 初始化
+    connect();
+  </script>
+</body>
+</html>

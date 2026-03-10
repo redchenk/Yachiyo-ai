@@ -1,0 +1,56 @@
+{
+  "live2d": {
+    "enabled": true,
+    "renderer": "pixijs",
+    "modelPath": "./models/yakumo",
+    "modelFile": "yakumo.model3.json",
+    "port": 3000,
+    "canvas": {
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "custom",
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKey": "not-needed",
+    "model": "qwen2.5:72b",
+    "contextLength": 4096,
+    "temperature": 0.8
+  },
+  "vision": {
+    "enabled": true,
+    "provider": "custom",
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKey": "not-needed",
+    "model": "llava:latest"
+  },
+  "stt": {
+    "enabled": true,
+    "provider": "faster-whisper",
+    "model": "large-v3",
+    "language": "zh",
+    "device": "cuda"
+  },
+  "tts": {
+    "enabled": true,
+    "provider": "custom",
+    "baseUrl": "http://localhost:5000",
+    "voice": "yakumo",
+    "format": "wav"
+  },
+  "minecraft": {
+    "enabled": false,
+    "host": "localhost",
+    "port": 25565,
+    "username": "YakumoAI",
+    "auth": "offline"
+  },
+  "system": {
+    "name": "八千代",
+    "personality": "温柔、聪明、有点调皮",
+    "language": "zh",
+    "version": "1.0.0"
+  }
+}
