@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>月见八千代 - 虚拟主播演示</title>
+  <title>月见八千代 - 虚拟主播</title>
   <style>
     * {
       margin: 0;
@@ -19,7 +19,7 @@
       overflow: hidden;
     }
     
-    /* 背景星空效果 */
+    /* 星空背景 */
     .stars {
       position: fixed;
       top: 0;
@@ -55,7 +55,7 @@
       gap: 20px;
     }
     
-    /* 左侧 - Live2D 展示区 */
+    /* Live2D 区域 */
     .live2d-area {
       position: relative;
       background: rgba(255, 255, 255, 0.05);
@@ -67,72 +67,93 @@
     }
     
     .live2d-header {
-      padding: 20px;
+      padding: 15px 20px;
       background: rgba(0, 0, 0, 0.3);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     
     .live2d-header h1 {
-      font-size: 1.8em;
+      font-size: 1.5em;
       background: linear-gradient(90deg, #c471ed, #f64f59);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 5px;
-    }
-    
-    .live2d-header p {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 0.9em;
     }
     
     .live2d-canvas {
       flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       position: relative;
+      overflow: hidden;
     }
     
-    /* 占位角色图像 */
-    .character-placeholder {
-      text-align: center;
-      padding: 40px;
+    #live2dCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
     
-    .character-avatar {
-      width: 300px;
-      height: 300px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #c471ed 0%, #f64f59 100%);
-      margin: 0 auto 20px;
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 12, 41, 0.9);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 100px;
-      box-shadow: 0 20px 60px rgba(196, 113, 237, 0.3);
-      animation: float 3s ease-in-out infinite;
+      z-index: 10;
     }
     
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-20px); }
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(196, 113, 237, 0.3);
+      border-top-color: #c471ed;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
     
-    .character-name {
-      font-size: 2em;
-      margin-bottom: 10px;
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
     
-    .character-status {
-      display: inline-block;
-      padding: 5px 20px;
-      background: rgba(76, 201, 240, 0.2);
-      border-radius: 20px;
-      color: #4cc9f0;
-      font-size: 0.9em;
+    .loading-text {
+      margin-top: 20px;
+      color: rgba(255, 255, 255, 0.7);
     }
     
-    /* 右侧 - 聊天区 */
+    /* 控制按钮 */
+    .controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 10px;
+      z-index: 5;
+    }
+    
+    .control-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.2em;
+      transition: all 0.2s;
+    }
+    
+    .control-btn:hover {
+      background: rgba(196, 113, 237, 0.5);
+      transform: scale(1.1);
+    }
+    
+    /* 聊天区域 */
     .chat-area {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 20px;
@@ -143,14 +164,37 @@
     }
     
     .chat-header {
-      padding: 20px;
+      padding: 15px 20px;
       background: rgba(0, 0, 0, 0.3);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     
     .chat-header h2 {
-      font-size: 1.3em;
+      font-size: 1.2em;
       color: #c471ed;
+    }
+    
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85em;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff6b6b;
+    }
+    
+    .status-dot.connected {
+      background: #51cf66;
+      box-shadow: 0 0 10px #51cf66;
     }
     
     .chat-messages {
@@ -171,14 +215,8 @@
     }
     
     @keyframes messageIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
     .message.user {
@@ -200,7 +238,7 @@
     }
     
     .chat-input {
-      padding: 20px;
+      padding: 15px 20px;
       background: rgba(0, 0, 0, 0.3);
       border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
@@ -208,11 +246,12 @@
     .input-row {
       display: flex;
       gap: 10px;
+      margin-bottom: 10px;
     }
     
     .input-row input {
       flex: 1;
-      padding: 15px 20px;
+      padding: 12px 20px;
       border: none;
       border-radius: 25px;
       background: rgba(255, 255, 255, 0.1);
@@ -227,46 +266,34 @@
       box-shadow: 0 0 20px rgba(196, 113, 237, 0.3);
     }
     
-    .input-row input::placeholder {
-      color: rgba(255, 255, 255, 0.5);
-    }
-    
     .input-row button {
-      padding: 15px 30px;
+      padding: 12px 25px;
       border: none;
       border-radius: 25px;
       background: linear-gradient(135deg, #c471ed 0%, #f64f59 100%);
       color: #fff;
       font-size: 1em;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s;
     }
     
     .input-row button:hover {
       transform: scale(1.05);
-      box-shadow: 0 10px 30px rgba(196, 113, 237, 0.4);
     }
     
-    .input-row button:active {
-      transform: scale(0.95);
-    }
-    
-    /* 快捷问题 */
     .quick-questions {
-      padding: 15px 20px;
-      background: rgba(0, 0, 0, 0.2);
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
     
     .quick-btn {
-      padding: 8px 16px;
+      padding: 6px 14px;
       border: 1px solid rgba(196, 113, 237, 0.5);
       border-radius: 20px;
       background: transparent;
       color: #c471ed;
-      font-size: 0.85em;
+      font-size: 0.8em;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -275,31 +302,96 @@
       background: rgba(196, 113, 237, 0.2);
     }
     
-    /* 情感指示器 */
-    .emotion-indicator {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      padding: 8px 16px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 20px;
-      font-size: 0.9em;
+    /* 设置面板 */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 400px;
+      height: 100vh;
+      background: rgba(15, 12, 41, 0.98);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      padding: 20px;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+    }
+    
+    .settings-panel.open {
+      right: 0;
+    }
+    
+    .settings-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    .emotion-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #4cc9f0;
-      animation: pulse 2s infinite;
+    .settings-header h2 {
+      color: #c471ed;
     }
     
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.2); opacity: 0.7; }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+    
+    .setting-group {
+      margin-bottom: 25px;
+    }
+    
+    .setting-group h3 {
+      font-size: 1em;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 15px;
+    }
+    
+    .setting-item {
+      margin-bottom: 15px;
+    }
+    
+    .setting-item label {
+      display: block;
+      font-size: 0.9em;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 8px;
+    }
+    
+    .setting-item input, .setting-item select {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 0.9em;
+    }
+    
+    .setting-item input:focus {
+      outline: none;
+      border-color: #c471ed;
+    }
+    
+    .save-btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #c471ed 0%, #f64f59 100%);
+      color: #fff;
+      font-size: 1em;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    
+    .save-btn:hover {
+      opacity: 0.9;
     }
     
     /* 响应式 */
@@ -309,12 +401,12 @@
         height: auto;
       }
       
-      .live2d-area, .chat-area {
-        min-height: 500px;
+      .live2d-area {
+        min-height: 400px;
       }
     }
     
-    /* 滚动条美化 */
+    /* 滚动条 */
     ::-webkit-scrollbar {
       width: 8px;
     }
@@ -327,45 +419,51 @@
       background: rgba(196, 113, 237, 0.5);
       border-radius: 4px;
     }
-    
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(196, 113, 237, 0.7);
-    }
   </style>
+  
+  <!-- Live2D Cubism SDK -->
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cubism.live2d.com/sdk-web/animator/live2dcubismanimator.min.js"></script>
+  <script src="https://cubism.live2d.com/sdk-web/rendering/live2dcubismrendering.min.js"></script>
+  <script src="https://cubism.live2d.com/sdk-web/framework/live2dcubismframework.min.js"></script>
 </head>
 <body>
-  <!-- 星空背景 -->
   <div class="stars" id="stars"></div>
   
   <div class="container">
-    <!-- Live2D 展示区 -->
+    <!-- Live2D 区域 -->
     <div class="live2d-area">
       <div class="live2d-header">
         <h1>🌙 月见八千代</h1>
-        <p>虚拟世界"月读"的管理员</p>
-      </div>
-      
-      <div class="live2d-canvas">
-        <div class="character-placeholder">
-          <div class="character-avatar">🌙</div>
-          <h2 class="character-name">月见八千代</h2>
-          <div class="character-status">🟢 在线 - 守望着你的梦境</div>
-          <p style="margin-top: 20px; color: rgba(255,255,255,0.6);">
-            （此处将显示 Live2D 模型）
-          </p>
+        <div class="connection-status">
+          <div class="status-dot" id="live2dStatus"></div>
+          <span id="live2dStatusText">初始化中</span>
         </div>
       </div>
       
-      <div class="emotion-indicator">
-        <div class="emotion-dot"></div>
-        <span id="emotionText">温柔</span>
+      <div class="live2d-canvas">
+        <div class="loading-overlay" id="loadingOverlay">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">加载 Live2D 模型中...</div>
+        </div>
+        
+        <canvas id="live2dCanvas"></canvas>
+        
+        <div class="controls">
+          <button class="control-btn" onclick="toggleSettings()" title="设置">⚙️</button>
+          <button class="control-btn" onclick="resetModel()" title="重置">🔄</button>
+        </div>
       </div>
     </div>
     
-    <!-- 聊天区 -->
+    <!-- 聊天区域 -->
     <div class="chat-area">
       <div class="chat-header">
-        <h2>💬 与八千代对话</h2>
+        <h2>💬 对话</h2>
+        <div class="connection-status">
+          <div class="status-dot" id="apiStatus"></div>
+          <span id="apiStatusText">未连接</span>
+        </div>
       </div>
       
       <div class="chat-messages" id="chatMessages">
@@ -375,24 +473,149 @@
         </div>
       </div>
       
-      <div class="quick-questions">
-        <button class="quick-btn" onclick="sendQuick('你幸福吗？')">🌙 你幸福吗？</button>
-        <button class="quick-btn" onclick="sendQuick('松饼是什么味道？')">🥞 松饼的味道</button>
-        <button class="quick-btn" onclick="sendQuick('你不会孤独吗？')">💫 关于孤独</button>
-        <button class="quick-btn" onclick="sendQuick('八千年是什么感觉？')">⏳ 八千年的感觉</button>
-      </div>
-      
       <div class="chat-input">
         <div class="input-row">
           <input type="text" id="userInput" placeholder="输入消息..." onkeypress="if(event.key==='Enter')sendMessage()">
           <button onclick="sendMessage()">发送</button>
         </div>
+        
+        <div class="quick-questions">
+          <button class="quick-btn" onclick="sendQuick('你幸福吗？')">🌙 你幸福吗？</button>
+          <button class="quick-btn" onclick="sendQuick('松饼是什么味道？')">🥞 松饼</button>
+          <button class="quick-btn" onclick="sendQuick('你不会孤独吗？')">💫 孤独</button>
+          <button class="quick-btn" onclick="sendQuick('八千年是什么感觉？')">⏳ 八千年</button>
+        </div>
       </div>
     </div>
   </div>
   
-  <script>
-    // 生成星空背景
+  <!-- 设置面板 -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <h2>⚙️ 设置</h2>
+      <button class="close-btn" onclick="toggleSettings()">×</button>
+    </div>
+    
+    <div class="setting-group">
+      <h3>🤖 AI 配置</h3>
+      
+      <div class="setting-item">
+        <label>API 提供商</label>
+        <select id="apiProvider">
+          <option value="custom">自定义 (OpenAI 兼容)</option>
+          <option value="ollama">Ollama (本地)</option>
+          <option value="qwen">通义千问</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </div>
+      
+      <div class="setting-item">
+        <label>API 地址</label>
+        <input type="text" id="apiUrl" placeholder="http://localhost:11434/v1" value="http://localhost:11434/v1">
+      </div>
+      
+      <div class="setting-item">
+        <label>API 密钥 (可选)</label>
+        <input type="text" id="apiKey" placeholder="sk-...">
+      </div>
+      
+      <div class="setting-item">
+        <label>模型名称</label>
+        <input type="text" id="modelName" placeholder="qwen2.5:72b" value="qwen2.5:72b">
+      </div>
+    </div>
+    
+    <div class="setting-group">
+      <h3>🎭 Live2D 配置</h3>
+      
+      <div class="setting-item">
+        <label>模型路径</label>
+        <input type="text" id="modelPath" placeholder="./models/yakumo" value="./models/yakumo">
+      </div>
+      
+      <div class="setting-item">
+        <label>模型文件</label>
+        <input type="text" id="modelFile" placeholder="yakumo.model3.json" value="yakumo.model3.json">
+      </div>
+    </div>
+    
+    <button class="save-btn" onclick="saveSettings()">💾 保存设置</button>
+    
+    <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 0.85em; color: rgba(255,255,255,0.6);">
+      <strong>💡 提示：</strong><br>
+      • API 地址填写你的后端服务地址<br>
+      • 本地部署可使用 Ollama (http://localhost:11434/v1)<br>
+      • Live2D 模型需放置在指定路径
+    </div>
+  </div>
+  
+  <script type="module">
+    // ==================== 配置管理 ====================
+    const defaultConfig = {
+      api: {
+        provider: 'custom',
+        baseUrl: 'http://localhost:11434/v1',
+        apiKey: '',
+        model: 'qwen2.5:72b'
+      },
+      live2d: {
+        modelPath: './models/yakumo',
+        modelFile: 'yakumo.model3.json'
+      }
+    };
+    
+    let config = loadConfig();
+    
+    function loadConfig() {
+      const saved = localStorage.getItem('yachiyo_config');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      return JSON.parse(JSON.stringify(defaultConfig));
+    }
+    
+    function saveConfig() {
+      localStorage.setItem('yachiyo_config', JSON.stringify(config));
+    }
+    
+    // 导出到全局作用域
+    window.saveSettings = function() {
+      config.api.provider = document.getElementById('apiProvider').value;
+      config.api.baseUrl = document.getElementById('apiUrl').value;
+      config.api.apiKey = document.getElementById('apiKey').value;
+      config.api.model = document.getElementById('modelName').value;
+      config.live2d.modelPath = document.getElementById('modelPath').value;
+      config.live2d.modelFile = document.getElementById('modelFile').value;
+      
+      saveConfig();
+      
+      alert('✅ 设置已保存！');
+      toggleSettings();
+      
+      // 重新连接 API
+      connectAPI();
+    };
+    
+    window.toggleSettings = function() {
+      const panel = document.getElementById('settingsPanel');
+      panel.classList.toggle('open');
+      
+      if (panel.classList.contains('open')) {
+        // 加载当前设置
+        document.getElementById('apiProvider').value = config.api.provider;
+        document.getElementById('apiUrl').value = config.api.baseUrl;
+        document.getElementById('apiKey').value = config.api.apiKey;
+        document.getElementById('modelName').value = config.api.model;
+        document.getElementById('modelPath').value = config.live2d.modelPath;
+        document.getElementById('modelFile').value = config.live2d.modelFile;
+      }
+    };
+    
+    window.resetModel = function() {
+      location.reload();
+    };
+    
+    // ==================== 星空背景 ====================
     function createStars() {
       const starsContainer = document.getElementById('stars');
       const starCount = 200;
@@ -409,36 +632,153 @@
       }
     }
     
-    // 聊天功能
-    const chatMessages = document.getElementById('chatMessages');
-    const userInput = document.getElementById('userInput');
-    const emotionText = document.getElementById('emotionText');
+    // ==================== API 连接 ====================
+    let ws = null;
     
-    // 模拟 AI 回复（实际使用时替换为 API 调用）
-    const mockResponses = {
-      '幸福': '（轻轻微笑，望向远方）幸福啊……看着大家在这里创作、欢笑、哭泣，就像看着星星一颗颗亮起来。（停顿片刻）只是偶尔，会想起很久很久以前，有个人教我吃的松饼……那种温度，大概就是幸福的味道吧。',
-      '松饼': '（眼神变得柔和，嘴角微微上扬）松饼啊……那是暖暖的味道，带着蜂蜜的甜香。（轻声）已经八千年了呢，可我还记得那个人递给我松饼时，指尖的温度。',
-      '孤独': '（轻笑）孤独啊……八千年了，它早就成了我的一部分。（指尖轻触胸口）但你看，现在有这么多人在这里做梦，我怎么会孤独呢？（声音渐轻）……只是偶尔，会想尝尝松饼的味道而已。',
-      '八千年': '（望向远方，眼中闪过数据流的微光）八千年……说起来很长，可对我来说，就像一瞬间。（温柔地笑）因为有你在，这一瞬间，也变得美好起来了。',
-      'default': '（温柔地微笑）我在听。继续说下去吧，你的故事，我愿意一直听下去。'
+    window.connectAPI = function() {
+      const statusDot = document.getElementById('apiStatus');
+      const statusText = document.getElementById('apiStatusText');
+      
+      // 尝试 WebSocket 连接
+      const wsUrl = config.api.baseUrl.replace('/v1', '').replace('http', 'ws') + '/ws';
+      
+      try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          statusDot.classList.add('connected');
+          statusText.textContent = '已连接';
+          console.log('✅ API 已连接:', wsUrl);
+        };
+        
+        ws.onclose = () => {
+          statusDot.classList.remove('connected');
+          statusText.textContent = '已断开';
+          console.log('❌ API 已断开');
+          
+          // 3 秒后重连
+          setTimeout(connectAPI, 3000);
+        };
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          handleAPIMessage(data);
+        };
+        
+        ws.onerror = (error) => {
+          console.error('API 错误:', error);
+        };
+      } catch (error) {
+        console.error('连接失败:', error);
+        statusText.textContent = '连接失败';
+      }
     };
     
-    function detectEmotion(text) {
-      if (text.includes('幸福')) return '怀念';
-      if (text.includes('松饼')) return '温柔';
-      if (text.includes('孤独')) return '淡然';
-      if (text.includes('八千年')) return '深邃';
-      return '温柔';
+    function handleAPIMessage(data) {
+      const chatMessages = document.getElementById('chatMessages');
+      
+      switch (data.type) {
+        case 'response':
+          addMessage(data.text, false);
+          break;
+        case 'expression':
+          updateEmotion(data.expression);
+          break;
+        case 'audio':
+          playAudio(data.path);
+          break;
+        case 'speaking':
+          console.log('说话状态:', data.value);
+          break;
+      }
     }
     
-    function getResponse(text) {
-      for (const [key, response] of Object.entries(mockResponses)) {
-        if (text.includes(key)) {
-          return response;
-        }
+    window.sendMessage = async function() {
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      
+      if (!text) return;
+      
+      addMessage(text, true);
+      input.value = '';
+      
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'user_input',
+          text: text
+        }));
+      } else {
+        // 降级：使用 HTTP API
+        await sendHTTPMessage(text);
       }
-      return mockResponses.default;
+    };
+    
+    async function sendHTTPMessage(text) {
+      try {
+        const response = await fetch(config.api.baseUrl + '/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': config.api.apiKey ? `Bearer ${config.api.apiKey}` : ''
+          },
+          body: JSON.stringify({
+            model: config.api.model,
+            messages: [
+              {
+                role: 'system',
+                content: buildSystemPrompt()
+              },
+              {
+                role: 'user',
+                content: text
+              }
+            ],
+            temperature: 0.8,
+            max_tokens: 500
+          })
+        });
+        
+        const data = await response.json();
+        const reply = data.choices[0].message.content;
+        
+        // 解析 JSON 回复
+        let parsed;
+        try {
+          const jsonMatch = reply.match(/\{[\s\S]*\}/);
+          parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { text: reply, emotion: 'neutral' };
+        } catch {
+          parsed = { text: reply, emotion: 'neutral' };
+        }
+        
+        addMessage(parsed.text, false);
+        updateEmotion(parsed.emotion);
+        
+      } catch (error) {
+        console.error('发送失败:', error);
+        addMessage('抱歉，我现在无法连接到服务器...', false);
+      }
     }
+    
+    function buildSystemPrompt() {
+      return `你是月见八千代，虚拟世界"月读"的管理员，辉夜姬八千年孤独后的未来形态。
+      
+性格：温柔、通透、带着淡淡的疏离感
+常用意象：月光、数据流、松饼、八千年的等待、梦境、守望
+
+请用 JSON 格式回复：
+{
+  "text": "你的回复（中文）",
+  "emotion": "neutral|happy|surprised|thinking|sad|nostalgic"
+}`;
+    }
+    
+    window.sendQuick = function(text) {
+      document.getElementById('userInput').value = text;
+      sendMessage();
+    };
+    
+    // ==================== 聊天界面 ====================
+    const chatMessages = document.getElementById('chatMessages');
     
     function addMessage(text, isUser) {
       const messageDiv = document.createElement('div');
@@ -459,40 +799,107 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
-    function sendMessage() {
-      const text = userInput.value.trim();
-      if (!text) return;
+    function updateEmotion(emotion) {
+      const emotionMap = {
+        'neutral': '平静',
+        'happy': '温柔',
+        'surprised': '惊讶',
+        'thinking': '思考',
+        'sad': '忧伤',
+        'nostalgic': '怀念'
+      };
       
-      // 添加用户消息
-      addMessage(text, true);
-      userInput.value = '';
-      
-      // 模拟 AI 回复
-      setTimeout(() => {
-        const response = getResponse(text);
-        const emotion = detectEmotion(text);
-        
-        addMessage(response, false);
-        emotionText.textContent = emotion;
-        
-        // 模拟语音合成提示
-        console.log('🔊 播放语音:', response);
-      }, 1000);
+      document.getElementById('emotionText').textContent = emotionMap[emotion] || emotion;
     }
     
-    function sendQuick(text) {
-      userInput.value = text;
-      sendMessage();
+    function playAudio(path) {
+      const audio = new Audio(path);
+      audio.play();
     }
     
-    // 初始化
-    createStars();
+    // ==================== Live2D 渲染（简化版） ====================
+    let live2DInitialized = false;
     
-    // 聚焦输入框
-    userInput.focus();
+    async function initLive2D() {
+      const canvas = document.getElementById('live2dCanvas');
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      const statusText = document.getElementById('live2dStatusText');
+      const statusDot = document.getElementById('live2dStatus');
+      
+      try {
+        // 初始化 Cubism SDK
+        const option = { logLevel: 0 };
+        await Live2DCubismFramework.startUp(option);
+        Live2DCubismFramework.initialize();
+        
+        // 设置 WebGL
+        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        if (!gl) {
+          throw new Error('WebGL 不支持');
+        }
+        
+        // 调整 canvas 尺寸
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        
+        // 尝试加载模型
+        await loadLive2DModel(canvas, gl, config.live2d.modelPath, config.live2d.modelFile);
+        
+        live2DInitialized = true;
+        statusDot.style.background = '#51cf66';
+        statusText.textContent = '已加载';
+        loadingOverlay.style.display = 'none';
+        
+        console.log('✅ Live2D 初始化完成');
+        
+      } catch (error) {
+        console.error('Live2D 初始化失败:', error);
+        statusText.textContent = '加载失败 (使用占位)';
+        loadingOverlay.innerHTML = `
+          <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 80px; margin-bottom: 20px;">🌙</div>
+            <div style="color: rgba(255,255,255,0.7);">
+              Live2D 模型加载失败<br>
+              <small>请检查模型路径配置</small>
+            </div>
+          </div>
+        `;
+      }
+    }
     
-    console.log('🌙 月见八千代 演示页面已加载');
-    console.log('💡 提示：这是一个演示页面，实际使用时需要连接后端 API');
+    async function loadLive2DModel(canvas, gl, modelPath, modelFile) {
+      // 简化的模型加载逻辑
+      // 实际项目中需要完整的 Cubism SDK 集成
+      
+      console.log('加载模型:', modelPath, modelFile);
+      
+      // 这里应该加载 .model3.json 文件
+      // 由于跨域和资源限制，演示版使用占位
+      
+      // 渲染循环
+      function render() {
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // 实际项目中这里渲染 Live2D 模型
+        // 演示版绘制一个简单的渐变
+        
+        requestAnimationFrame(render);
+      }
+      
+      render();
+    }
+    
+    // ==================== 初始化 ====================
+    window.addEventListener('DOMContentLoaded', () => {
+      createStars();
+      initLive2D();
+      connectAPI();
+      
+      console.log('🌙 月见八千代 已启动');
+      console.log('⚙️ 当前配置:', config);
+    });
   </script>
 </body>
 </html>
