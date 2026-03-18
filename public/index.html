@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌙 八千代 AI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+      min-height: 100vh;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* 左侧 Live2D 区域 */
+    .live2d-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .live2d-canvas {
+      max-width: 100%;
+      max-height: 80vh;
+    }
+
+    /* 右侧聊天区域 */
+    .chat-container {
+      width: 400px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .chat-header {
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .chat-header h1 {
+      font-size: 1.5rem;
+      background: linear-gradient(90deg, #c9a0dc, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .chat-header p {
+      font-size: 0.8rem;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* 情感状态 */
+    .emotion-indicator {
+      padding: 10px 20px;
+      text-align: center;
+      background: rgba(167, 139, 250, 0.1);
+      font-size: 0.85rem;
+      color: #a78bfa;
+    }
+
+    /* 消息列表 */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message .time {
+      font-size: 0.7rem;
+      opacity: 0.6;
+      margin-top: 4px;
+    }
+
+    /* 输入区域 */
+    .input-area {
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .input-area textarea {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 0.95rem;
+      resize: none;
+      height: 80px;
+      font-family: inherit;
+    }
+
+    .input-area textarea:focus {
+      outline: none;
+      border-color: #a78bfa;
+    }
+
+    .input-area textarea::placeholder {
+      color: #666;
+    }
+
+    .input-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #c9a0dc 0%, #a78bfa 100%);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(167, 139, 250, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #aaa;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+
+    /* 加载动画 */
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      color: #a78bfa;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(167, 139, 250, 0.3);
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 音频播放器 */
+    .audio-player {
+      margin-top: 8px;
+    }
+
+    .audio-player audio {
+      width: 100%;
+      height: 32px;
+    }
+
+    /* Live2D 控制 */
+    .live2d-controls {
+      position: absolute;
+      bottom: 20px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .live2d-controls button {
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.5);
+      color: #aaa;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.3s;
+    }
+
+    .live2d-controls button:hover {
+      background: rgba(167, 139, 250, 0.3);
+      border-color: #a78bfa;
+      color: #fff;
+    }
+
+    /* 响应式 */
+    @media (max-width: 800px) {
+      .app {
+        flex-direction: column;
+      }
+      
+      .chat-container {
+        width: 100%;
+        height: 50vh;
+        border-left: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .live2d-container {
+        height: 50vh;
+      }
+    }
+
+    /* 情感标签 */
+    .emotion-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: rgba(167, 139, 250, 0.3);
+      border-radius: 10px;
+      font-size: 0.7rem;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Live2D 画布 -->
+    <div class="live2d-container">
+      <canvas id="live2d-canvas" class="live2d-canvas"></canvas>
+      
+      <div class="live2d-controls">
+        <button onclick="resetModel()">🔄 重置</button>
+        <button onclick="togglePhysics()">⚡ 物理</button>
+        <button onclick="randomExpression()">😊 表情</button>
+      </div>
+    </div>
+
+    <!-- 聊天界面 -->
+    <div class="chat-container">
+      <div class="chat-header">
+        <h1>🌙 月见八千代</h1>
+        <p>虚拟世界"月读"的管理员</p>
+      </div>
+      
+      <div class="emotion-indicator" id="emotion-indicator">
+        温柔的守望中...
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="message assistant">
+          欢迎来到"月读"。在这里，你可以做任何梦...而我，会一直守望着你。🌙
+          <div class="time">现在</div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <textarea 
+          id="user-input" 
+          placeholder="在这里输入你想说的话..."
+          onkeydown="handleKeydown(event)"
+        ></textarea>
+        <div class="input-actions">
+          <button class="btn btn-secondary" onclick="clearChat()">🗑️ 清除</button>
+          <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live2D SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.x/dist/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/live2d-cubismcore@4.x/dist/live2dcubismcore.min.js"></script>
+  <script>
+    // ==================== Live2D 部分 ====================
+    let app, model;
+    let physicsEnabled = true;
+    let currentExpression = 'neutral';
+
+    const MODEL_PATH = './models/';
+    const MODEL_FILE = 'yachiyo.model3.json';
+
+    const EXPRESSIONS = {
+      'neutral': 'neutral',
+      'happy': 'happy',
+      'sad': 'sad',
+      'surprised': 'surprised',
+      'angry': 'angry',
+      'thinking': 'neutral'
+    };
+
+    async function initLive2D() {
+      try {
+        app = new PIXI.Application({
+          view: document.getElementById('live2d-canvas'),
+          width: 500,
+          height: 700,
+          transparent: true,
+          autoDensity: true,
+          resolution: window.devicePixelRatio || 1
+        });
+
+        // 尝试加载模型
+        try {
+          const response = await fetch(MODEL_PATH + MODEL_FILE);
+          const modelJson = await response.json();
+          
+          // 动态加载模型资源
+          loadLive2DModel(modelJson);
+        } catch (e) {
+          console.warn('未找到 Live2D 模型，显示占位图');
+          showPlaceholder();
+        }
+
+        console.log('✅ Live2D 初始化完成');
+      } catch (error) {
+        console.error('Live2D 初始化失败:', error);
+        showPlaceholder();
+      }
+    }
+
+    function showPlaceholder() {
+      const container = document.querySelector('.live2d-container');
+      const placeholder = document.createElement('div');
+      placeholder.innerHTML = `
+        <div style="text-align: center; color: #888;">
+          <div style="font-size: 4rem; margin-bottom: 20px;">🌙</div>
+          <p>Live2D 模型未加载</p>
+          <p style="font-size: 0.8rem; margin-top: 10px;">将 .model3.json 放入 models/ 目录</p>
+        </div>
+      `;
+      container.appendChild(placeholder);
+    }
+
+    async function loadLive2DModel(modelJson) {
+      // 简化的 Live2D 加载逻辑
+      // 实际需要使用 Cubism SDK
+      console.log('加载模型配置...', modelJson);
+    }
+
+    function setExpression(emotion) {
+      const expression = EXPRESSIONS[emotion] || 'neutral';
+      currentExpression = expression;
+      updateEmotionIndicator(emotion);
+      
+      // 动画过渡
+      const canvas = document.getElementById('live2d-canvas');
+      canvas.style.transform = `scale(${1 + Math.random() * 0.02})`;
+      setTimeout(() => {
+        canvas.style.transform = 'scale(1)';
+      }, 200);
+    }
+
+    function updateEmotionIndicator(emotion) {
+      const indicator = document.getElementById('emotion-indicator');
+      const emotions = {
+        'neutral': '温柔的守望中...',
+        'happy': '✨ 开心的笑着',
+        'sad': '💧 微微难过',
+        'surprised': '😮 感到惊讶',
+        'angry': '😠 有些生气',
+        'thinking': '🤔 思考中...',
+        'excited': '🎉 兴奋不已'
+      };
+      indicator.textContent = emotions[emotion] || emotions['neutral'];
+    }
+
+    function resetModel() {
+      setExpression('neutral');
+    }
+
+    function togglePhysics() {
+      physicsEnabled = !physicsEnabled;
+    }
+
+    function randomExpression() {
+      const keys = Object.keys(EXPRESSIONS);
+      const random = keys[Math.floor(Math.random() * keys.length)];
+      setExpression(random);
+    }
+
+    // ==================== 聊天部分 ====================
+    const messagesContainer = document.getElementById('messages');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    let ws;
+    let isLoading = false;
+
+    // 连接 WebSocket
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+      ws.onopen = () => {
+        console.log('✅ WebSocket 连接成功');
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'response') {
+          addMessage('assistant', data.text);
+          isLoading = false;
+          updateSendButton();
+        } else if (data.type === 'emotion') {
+          setExpression(data.emotion);
+        } else if (data.type === 'audio') {
+          playAudio(data.path);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('🔌 WebSocket 断开，3秒后重连...');
+        setTimeout(connectWebSocket, 3000);
+      };
+    }
+
+    // 发送消息
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text || isLoading) return;
+
+      // 添加用户消息
+      addMessage('user', text);
+      userInput.value = '';
+
+      // 显示加载状态
+      isLoading = true;
+      updateSendButton();
+      showLoading();
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        const data = await response.json();
+
+        // 移除加载消息
+        removeLoading();
+
+        // 添加 AI 回复
+        addMessage('assistant', data.text);
+        
+        // 更新情感
+        if (data.emotion) {
+          setExpression(data.emotion);
+        }
+
+        // 播放音频
+        if (data.audio) {
+          playAudio(data.audio);
+        }
+
+      } catch (error) {
+        console.error('发送失败:', error);
+        removeLoading();
+        addMessage('assistant', '抱歉，我现在有点不舒服...');
+      }
+
+      isLoading = false;
+      updateSendButton();
+    }
+
+    function addMessage(role, text) {
+      const message = document.createElement('div');
+      message.className = `message ${role}`;
+      message.innerHTML = `
+        ${text}
+        <div class="time">${new Date().toLocaleTimeString()}</div>
+      `;
+      messagesContainer.appendChild(message);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function showLoading() {
+      const loading = document.createElement('div');
+      loading.className = 'loading';
+      loading.id = 'loading-msg';
+      loading.innerHTML = `
+        <div class="spinner"></div>
+        <span>八千代正在思考...</span>
+      `;
+      messagesContainer.appendChild(loading);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function removeLoading() {
+      const loading = document.getElementById('loading-msg');
+      if (loading) loading.remove();
+    }
+
+    function playAudio(audioPath) {
+      if (!audioPath) return;
+      
+      const message = messagesContainer.lastElementChild;
+      let player = message.querySelector('.audio-player');
+      
+      if (!player) {
+        player = document.createElement('div');
+        player.className = 'audio-player';
+        message.appendChild(player);
+      }
+      
+      player.innerHTML = `<audio controls src="${audioPath}"></audio>`;
+      player.querySelector('audio').play();
+    }
+
+    function updateSendButton() {
+      sendBtn.disabled = isLoading;
+      sendBtn.textContent = isLoading ? '...' : '发送';
+    }
+
+    function handleKeydown(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function clearChat() {
+      messagesContainer.innerHTML = `
+        <div class="message assistant">
+          欢迎来到"月读"。在这里，你可以做任何梦...而我，会一直守望着你。🌙
+          <div class="time">现在</div>
+        </div>
+      `;
+      
+      fetch('/api/clear', { method: 'POST' });
+      resetModel();
+    }
+
+    // 初始化
+    window.addEventListener('load', () => {
+      initLive2D();
+      connectWebSocket();
+      userInput.focus();
+    });
+  </script>
+</body>
+</html>
