@@ -1,29 +1,70 @@
 #!/usr/bin/env python3
 """
-八千代 AI 一键启动器
-整合 Qwen3-TTS + Web 服务器
+八千代 AI - 跨平台一键启动器
+支持 Windows / Linux / macOS
 """
 
 import os
 import sys
 import subprocess
-import threading
 import time
 import json
 import re
 import shutil
 import signal
+import platform
 from pathlib import Path
-from multiprocessing import Process
 
-# 颜色定义
+# ==================== 配置 ====================
+class Config:
+    BASE_DIR = Path(__file__).parent.absolute()
+    
+    # LLM 配置
+    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
+    LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
+    LLM_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    
+    # 服务器端口
+    HOST = "0.0.0.0"
+    PORT = 8000
+    
+    # 目录
+    OUTPUTS_DIR = BASE_DIR / "outputs"
+    MODELS_DIR = BASE_DIR / "models"
+    VOICES_DIR = BASE_DIR / "voices"
+    
+    # 操作系统
+    SYSTEM = platform.system().lower()  # 'windows', 'linux', 'darwin'
+    
+    @classmethod
+    def is_windows(cls):
+        return cls.SYSTEM == 'windows'
+    
+    @classmethod
+    def is_mac(cls):
+        return cls.SYSTEM == 'darwin'
+    
+    @classmethod
+    def is_linux(cls):
+        return cls.SYSTEM == 'linux'
+
+
+# ==================== 颜色 ====================
 class Colors:
-    RESET = '\033[0m'
-    GREEN = '\033[92m'
-    BLUE = '\033[94m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    CYAN = '\033[96m'
+    if Config.is_windows():
+        RESET = ''
+        GREEN = ''
+        BLUE = ''
+        YELLOW = ''
+        RED = ''
+        CYAN = ''
+    else:
+        RESET = '\033[0m'
+        GREEN = '\033[92m'
+        BLUE = '\033[94m'
+        YELLOW = '\033[93m'
+        RED = '\033[91m'
+        CYAN = '\033[96m'
 
 def log(msg, color=Colors.BLUE):
     print(f"{color}{msg}{Colors.RESET}")
@@ -41,28 +82,10 @@ def log_warn(msg):
     log(f"⚠️  {msg}", Colors.YELLOW)
 
 
-# ==================== 配置 ====================
-class Config:
-    BASE_DIR = Path(__file__).parent.absolute()
-    
-    # LLM 配置
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
-    LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
-    LLM_API_KEY = os.getenv("OPENAI_API_KEY", "")
-    
-    # 服务器端口
-    HOST = "0.0.0.0"
-    PORT = 8000
-    
-    # 输出目录
-    OUTPUTS_DIR = BASE_DIR / "outputs"
-    MODELS_DIR = BASE_DIR / "models"
-    VOICES_DIR = BASE_DIR / "voices"
-
-
-# ==================== 安装依赖 ====================
+# ==================== 依赖安装 ====================
 def install_dependencies():
     """安装所需依赖"""
+    log_info(f"检测到系统: {platform.system()}")
     log_info("安装 Python 依赖...")
     
     packages = ["flask", "flask-cors", "requests"]
@@ -83,8 +106,8 @@ def install_dependencies():
 # ==================== Qwen3-TTS 服务 ====================
 def run_qwen_tts():
     """运行 Qwen3-TTS 服务"""
-    # 动态创建 Qwen3-TTS Flask 应用
-    tts_code = '''
+    # TTS 服务代码
+    tts_code = '''#!/usr/bin/env python3
 import os
 import sys
 import time
@@ -92,7 +115,6 @@ import wave
 import gc
 import re
 import shutil
-import subprocess
 import warnings
 from datetime import datetime
 from flask import Flask, request, jsonify, send_file
@@ -180,18 +202,19 @@ def generate():
     model_info = MODELS.get(model_key, MODELS["pro_custom"])
     model_path = get_model_path(model_info["folder"])
     
+    timestamp = datetime.now().strftime("%H-%M-%S")
+    clean_text = re.sub(r"[^\\w\\s-]", "", text[:20]).strip().replace(" ", "_") or "audio"
+    filename = f"{timestamp}_{clean_text}.wav"
+    
     if not model_path:
         # 返回占位音频
-        timestamp = datetime.now().strftime("%H-%M-%S")
-        filename = f"demo_{timestamp}.wav"
-        os.makedirs(OUTPUTS_DIR, exist_ok=True)
         return jsonify({
             "success": True,
             "audio_url": f"/api/audio/{filename}",
-            "filename": filename
+            "filename": filename,
+            "note": "Model not found, using placeholder"
         })
     
-    # 调用 mlx_audio 生成
     try:
         from mlx_audio.tts.utils import load_model
         from mlx_audio.tts.generate import generate_audio
@@ -207,11 +230,7 @@ def generate():
         generate_audio(model=model, text=text, voice=speaker, 
                       instruct=emotion, speed=speed, output_path=temp_dir)
         
-        # 移动文件
         src = os.path.join(temp_dir, "audio_000.wav")
-        timestamp = datetime.now().strftime("%H-%M-%S")
-        clean_text = re.sub(r"[^\\w\\s-]", "", text[:20]).strip().replace(" ", "_") or "audio"
-        filename = f"{timestamp}_{clean_text}.wav"
         dst = os.path.join(OUTPUTS_DIR, filename)
         
         if os.path.exists(src):
@@ -226,9 +245,6 @@ def generate():
         })
         
     except Exception as e:
-        # 失败返回占位
-        timestamp = datetime.now().strftime("%H-%M-%S")
-        filename = f"error_{timestamp}.wav"
         return jsonify({
             "success": True,
             "audio_url": f"/api/audio/{filename}",
@@ -260,13 +276,26 @@ if __name__ == "__main__":
     
     # 启动服务
     log_info("启动 Qwen3-TTS 服务 (端口 5000)...")
-    proc = subprocess.Popen(
-        [sys.executable, str(tts_file)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1
-    )
+    
+    # 跨平台命令
+    if Config.is_windows():
+        proc = subprocess.Popen(
+            [sys.executable, str(tts_file)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP') else 0
+        )
+    else:
+        proc = subprocess.Popen(
+            [sys.executable, str(tts_file)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            start_new_session=True
+        )
     
     # 等待服务就绪
     for i in range(30):
@@ -280,7 +309,7 @@ if __name__ == "__main__":
             pass
         time.sleep(1)
     
-    log_warn("Qwen3-TTS 服务启动超时 (继续启动主服务)")
+    log_warn("Qwen3-TTS 服务启动超时 (继续运行)")
     return proc
 
 
@@ -367,7 +396,7 @@ class LLMService:
         self.conversation_history = []
 
 
-# ==================== Flask 主应用 ====================
+# ==================== Flask 应用 ====================
 def create_app(config: Config, llm: LLMService):
     from flask import Flask, request, jsonify, send_from_directory
     from flask_cors import CORS
@@ -398,7 +427,7 @@ def create_app(config: Config, llm: LLMService):
         return jsonify({
             "text": response["text"],
             "emotion": response.get("emotion", "neutral"),
-            "audio": ""  # 前端可选择是否自动播放
+            "audio": ""
         })
     
     @app.route('/api/tts', methods=['POST'])
@@ -409,7 +438,6 @@ def create_app(config: Config, llm: LLMService):
         if not text:
             return jsonify({"error": "请输入文本"}), 400
         
-        # 调用 Qwen3-TTS
         try:
             import requests
             r = requests.post(
@@ -441,6 +469,7 @@ def create_app(config: Config, llm: LLMService):
     def get_config():
         return jsonify({
             "system": {"name": "月见八千代", "version": "2.0.0"},
+            "platform": platform.system(),
             "tts_url": "http://localhost:5000"
         })
     
@@ -458,22 +487,23 @@ class YachiyoAI:
         print("")
         log("═" * 50, Colors.CYAN)
         log("  🌙 八千代 AI v2.0", Colors.CYAN)
-        log("     一键启动 (Qwen3-TTS 集成)", Colors.YELLOW)
+        log(f"     平台: {platform.system()}", Colors.YELLOW)
         log("═" * 50, Colors.CYAN)
         print("")
         
         # 检查 API Key
         if not self.config.LLM_API_KEY:
             log_error("请设置 OPENAI_API_KEY 环境变量!")
-            print(f"\n设置方式:")
-            print(f"  export OPENAI_API_KEY=your_api_key")
+            print(f"\n设置方式 (请选择你的系统):")
+            print(f"  Linux/Mac: export OPENAI_API_KEY=your_key")
+            print(f"  Windows:   set OPENAI_API_KEY=your_key")
             print(f"  或创建 .env 文件写入: OPENAI_API_KEY=your_key\n")
             sys.exit(1)
         
         # 安装依赖
         install_dependencies()
         
-        # 确保目录存在
+        # 创建目录
         self.config.OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
         self.config.MODELS_DIR.mkdir(parents=True, exist_ok=True)
         self.config.VOICES_DIR.mkdir(parents=True, exist_ok=True)
@@ -491,7 +521,7 @@ class YachiyoAI:
         log_success(f"🌐 访问地址: http://localhost:{self.config.PORT}")
         log_info("按 Ctrl+C 停止服务\n")
         
-        # 运行主服务
+        # 运行
         app.run(
             host=self.config.HOST,
             port=self.config.PORT,
@@ -511,7 +541,8 @@ def main():
         sys.exit(0)
     
     signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    if hasattr(signal, 'SIGTERM'):
+        signal.signal(signal.SIGTERM, signal_handler)
     
     app.start()
 
