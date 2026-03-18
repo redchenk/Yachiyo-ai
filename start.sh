@@ -2,6 +2,7 @@
 #
 # 八千代 AI v2.0 启动脚本
 # 支持 macOS / Linux
+# 自动创建虚拟环境
 #
 
 # 颜色
@@ -9,7 +10,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}================================================${NC}"
 echo -e "${BLUE}  🌙 八千代 AI v2.0${NC}"
@@ -25,7 +26,6 @@ fi
 
 # 检查环境变量
 if [ -z "$OPENAI_API_KEY" ]; then
-    # 尝试从 .env 加载
     if [ -f ".env" ]; then
         echo -e "${YELLOW}📌 加载 .env 配置...${NC}"
         export $(cat .env | grep -v '^#' | xargs)
@@ -43,10 +43,9 @@ if [ -z "$OPENAI_API_KEY" ]; then
     fi
 fi
 
-# 检查 pip
 echo -e "${GREEN}✅ 环境检查通过${NC}"
 
-# 启动
+# 启动 (虚拟环境自动创建)
 echo ""
 echo -e "${YELLOW}📌 启动八千代 AI...${NC}"
 python3 run.py

@@ -26,7 +26,7 @@ if "%OPENAI_API_KEY%"=="" (
     exit /b 1
 )
 
-REM 启动
+REM 启动 (虚拟环境自动创建)
 echo.
 echo 📌 启动八千代 AI...
 python run.py

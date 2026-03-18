@@ -2,6 +2,7 @@
 """
 八千代 AI - 跨平台一键启动器
 支持 Windows / Linux / macOS
+自动创建虚拟环境
 """
 
 import os
@@ -13,11 +14,13 @@ import re
 import shutil
 import signal
 import platform
+import venv
 from pathlib import Path
 
 # ==================== 配置 ====================
 class Config:
     BASE_DIR = Path(__file__).parent.absolute()
+    VENV_DIR = BASE_DIR / ".venv"
     
     # LLM 配置
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
@@ -47,6 +50,22 @@ class Config:
     @classmethod
     def is_linux(cls):
         return cls.SYSTEM == 'linux'
+    
+    @classmethod
+    def python_exe(cls):
+        """虚拟环境中的 Python"""
+        if cls.is_windows():
+            return cls.VENV_DIR / "Scripts" / "python.exe"
+        else:
+            return cls.VENV_DIR / "bin" / "python"
+    
+    @classmethod
+    def pip_exe(cls):
+        """虚拟环境中的 pip"""
+        if cls.is_windows():
+            return cls.VENV_DIR / "Scripts" / "pip.exe"
+        else:
+            return cls.VENV_DIR / "bin" / "pip"
 
 
 # ==================== 颜色 ====================
@@ -82,31 +101,75 @@ def log_warn(msg):
     log(f"⚠️  {msg}", Colors.YELLOW)
 
 
-# ==================== 依赖安装 ====================
+# ==================== 虚拟环境 ====================
+def create_venv():
+    """创建虚拟环境"""
+    if Config.VENV_DIR.exists():
+        log_success("虚拟环境已存在")
+        return True
+    
+    log_info("创建虚拟环境...")
+    
+    try:
+        venv.create(Config.VENV_DIR, with_pip=True)
+        log_success("虚拟环境创建完成")
+        return True
+    except Exception as e:
+        log_error(f"虚拟环境创建失败: {e}")
+        return False
+
+
 def install_dependencies():
-    """安装所需依赖"""
-    log_info(f"检测到系统: {platform.system()}")
-    log_info("安装 Python 依赖...")
+    """安装依赖到虚拟环境"""
+    log_info("安装依赖到虚拟环境...")
     
     packages = ["flask", "flask-cors", "requests"]
     
     for pkg in packages:
+        log_info(f"安装 {pkg}...")
         try:
-            __import__(pkg.replace("-", "_").split("==")[0])
-            log_success(f"{pkg} 已安装")
-        except ImportError:
-            log_info(f"安装 {pkg}...")
-            subprocess.run([
-                sys.executable, "-m", "pip", "install", pkg
-            ], check=True)
+            subprocess.run(
+                [str(Config.python_exe()), "-m", "pip", "install", pkg],
+                check=True,
+                capture_output=True
+            )
+        except subprocess.CalledProcessError as e:
+            log_warn(f"{pkg} 安装可能有问题")
     
-    log_success("所有依赖已安装")
+    log_success("依赖安装完成")
+
+
+def check_venv():
+    """检查并创建虚拟环境"""
+    # 检查虚拟环境是否有效
+    if Config.VENV_DIR.exists():
+        py = Config.python_exe()
+        if py.exists():
+            try:
+                result = subprocess.run(
+                    [str(py), "--version"],
+                    capture_output=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    log_success(f"虚拟环境已就绪 ({py})")
+                    return True
+            except:
+                pass
+    
+    # 创建虚拟环境
+    if not create_venv():
+        return False
+    
+    # 安装依赖
+    install_dependencies()
+    
+    return True
 
 
 # ==================== Qwen3-TTS 服务 ====================
 def run_qwen_tts():
     """运行 Qwen3-TTS 服务"""
-    # TTS 服务代码
     tts_code = '''#!/usr/bin/env python3
 import os
 import sys
@@ -199,20 +262,19 @@ def generate():
     if not text:
         return jsonify({"error": "No text provided"}), 400
     
-    model_info = MODELS.get(model_key, MODELS["pro_custom"])
-    model_path = get_model_path(model_info["folder"])
-    
     timestamp = datetime.now().strftime("%H-%M-%S")
     clean_text = re.sub(r"[^\\w\\s-]", "", text[:20]).strip().replace(" ", "_") or "audio"
     filename = f"{timestamp}_{clean_text}.wav"
     
+    model_info = MODELS.get(model_key, MODELS["pro_custom"])
+    model_path = get_model_path(model_info["folder"])
+    
     if not model_path:
-        # 返回占位音频
         return jsonify({
             "success": True,
             "audio_url": f"/api/audio/{filename}",
             "filename": filename,
-            "note": "Model not found, using placeholder"
+            "note": "Model not found"
         })
     
     try:
@@ -270,17 +332,14 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
 '''
     
-    # 创建 TTS 服务文件
     tts_file = Config.BASE_DIR / "_qwen_tts_service.py"
     tts_file.write_text(tts_code)
     
-    # 启动服务
     log_info("启动 Qwen3-TTS 服务 (端口 5000)...")
     
-    # 跨平台命令
     if Config.is_windows():
         proc = subprocess.Popen(
-            [sys.executable, str(tts_file)],
+            [str(Config.python_exe()), str(tts_file)],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -289,7 +348,7 @@ if __name__ == "__main__":
         )
     else:
         proc = subprocess.Popen(
-            [sys.executable, str(tts_file)],
+            [str(Config.python_exe()), str(tts_file)],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -297,7 +356,6 @@ if __name__ == "__main__":
             start_new_session=True
         )
     
-    # 等待服务就绪
     for i in range(30):
         try:
             import requests
@@ -309,7 +367,7 @@ if __name__ == "__main__":
             pass
         time.sleep(1)
     
-    log_warn("Qwen3-TTS 服务启动超时 (继续运行)")
+    log_warn("Qwen3-TTS 服务启动超时")
     return proc
 
 
@@ -494,14 +552,16 @@ class YachiyoAI:
         # 检查 API Key
         if not self.config.LLM_API_KEY:
             log_error("请设置 OPENAI_API_KEY 环境变量!")
-            print(f"\n设置方式 (请选择你的系统):")
+            print(f"\n设置方式:")
             print(f"  Linux/Mac: export OPENAI_API_KEY=your_key")
             print(f"  Windows:   set OPENAI_API_KEY=your_key")
             print(f"  或创建 .env 文件写入: OPENAI_API_KEY=your_key\n")
             sys.exit(1)
         
-        # 安装依赖
-        install_dependencies()
+        # 创建虚拟环境并安装依赖
+        if not check_venv():
+            log_error("虚拟环境初始化失败")
+            sys.exit(1)
         
         # 创建目录
         self.config.OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -521,7 +581,6 @@ class YachiyoAI:
         log_success(f"🌐 访问地址: http://localhost:{self.config.PORT}")
         log_info("按 Ctrl+C 停止服务\n")
         
-        # 运行
         app.run(
             host=self.config.HOST,
             port=self.config.PORT,
