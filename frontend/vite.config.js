@@ -11,19 +11,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true
-      },
-      '/ws': {
-        target: 'ws://localhost:3001',
-        ws: true
-      },
-      '/models': {
-        target: 'http://localhost:3001',
-        changeOrigin: true
-      }
-    }
+    host: true
   }
 })

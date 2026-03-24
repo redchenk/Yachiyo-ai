@@ -11,13 +11,53 @@
     <main class="main">
       <!-- Live2D 视图区域 -->
       <div class="live2d-container">
-        <div ref="live2dRef" class="live2d-view"></div>
+        <div ref="live2dRef" class="live2d-view">
+          <canvas ref="canvasRef"></canvas>
+        </div>
+        
+        <!-- 模型加载提示 -->
+        <div v-if="!modelLoaded && !loadingError" class="loading-overlay">
+          <div class="loading-content">
+            <div class="spinner"></div>
+            <p>正在加载 Live2D 模型...</p>
+          </div>
+        </div>
+        
+        <!-- 错误提示 -->
+        <div v-if="loadingError" class="error-overlay">
+          <div class="error-content">
+            <p>⚠️ {{ loadingError }}</p>
+            <button @click="showUpload = true">📁 上传模型文件</button>
+            <p class="hint">支持 .model3.json 格式的 Live2D 模型</p>
+          </div>
+        </div>
       </div>
 
       <!-- 控制面板 -->
       <div class="control-panel">
-        <!-- 表情控制 -->
+        <!-- 模型文件上传 -->
         <section class="control-section">
+          <h2>📂 模型文件</h2>
+          <div class="file-upload">
+            <input 
+              type="file" 
+              ref="fileInput"
+              accept=".model3.json,.json"
+              @change="handleModelUpload"
+              style="display: none"
+            />
+            <button @click="$refs.fileInput.click()" class="upload-btn">
+              📁 选择 .model3.json 文件
+            </button>
+            <p class="hint">选择后会自动加载同目录下的贴图文件</p>
+          </div>
+          <div v-if="modelName" class="current-model">
+            当前模型：<strong>{{ modelName }}</strong>
+          </div>
+        </section>
+
+        <!-- 表情控制 -->
+        <section class="control-section" v-if="expressions.length > 0">
           <h2>🎭 表情</h2>
           <div class="button-grid">
             <button 
@@ -41,22 +81,6 @@
             <button @click="playMotion('greeting', 'greeting_02')">挥手</button>
             <button @click="stopMotion()">⏹ 停止</button>
           </div>
-        </section>
-
-        <!-- 模型切换 -->
-        <section class="control-section">
-          <h2>🔄 模型</h2>
-          <div class="model-select">
-            <select v-model="selectedModel" @change="switchModel">
-              <option v-for="model in models" :key="model" :value="model">
-                {{ model }}
-              </option>
-            </select>
-            <button @click="loadModels" class="refresh-btn">🔄 刷新</button>
-          </div>
-          <p class="current-model" v-if="currentModel">
-            当前：<strong>{{ currentModel }}</strong>
-          </p>
         </section>
 
         <!-- 口型同步 -->
@@ -87,26 +111,46 @@
         </section>
       </div>
     </main>
+
+    <!-- 上传模态框 -->
+    <div v-if="showUpload" class="modal-overlay" @click.self="showUpload = false">
+      <div class="modal">
+        <h2>📁 上传 Live2D 模型</h2>
+        <p>请上传 .model3.json 文件，并确保同目录下有相关的贴图文件</p>
+        <input 
+          type="file" 
+          ref="modalFileInput"
+          accept=".model3.json,.json"
+          @change="handleModelUpload"
+        />
+        <button @click="showUpload = false" class="close-btn">关闭</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { api } from './api/client.js'
+import * as PIXI from 'pixi.js'
+import { Live2DModel } from 'pixi-live2d-display'
 
 // 状态
 const connectionStatus = ref('disconnected')
-const expressions = ref([])
-const models = ref([])
-const currentModel = ref('')
-const selectedModel = ref('')
+const expressions = ref(['happy', 'sad', 'neutral', 'surprised', 'angry', 'relaxed'])
 const currentExpression = ref('')
 const lipsyncValue = ref(0)
 const logs = ref([])
 const live2dRef = ref(null)
+const canvasRef = ref(null)
 const logRef = ref(null)
+const modelLoaded = ref(false)
+const loadingError = ref('')
+const modelName = ref('')
+const showUpload = ref(false)
 
-// WebSocket
+// PIXI & Live2D
+let app = null
+let live2dModel = null
 let ws = null
 
 // 日志函数
@@ -150,15 +194,15 @@ const connectWebSocket = () => {
   }
   
   ws.onerror = (err) => {
-    addLog(`WebSocket 错误：${err.message}`, 'error')
+    addLog(`WebSocket 错误`, 'error')
   }
   
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
-      addLog(`WS: ${data.type} - ${JSON.stringify(data)}`, 'info')
+      addLog(`WS: ${data.type}`, 'info')
     } catch (e) {
-      addLog(`WS 原始消息：${event.data}`, 'info')
+      addLog(`WS 消息`, 'info')
     }
   }
 }
@@ -170,86 +214,23 @@ const sendWs = (data) => {
   }
 }
 
-// 加载模型列表
-const loadModels = async () => {
-  try {
-    const res = await api.getModels()
-    models.value = res.models || []
-    addLog(`加载模型列表：${models.value.length} 个模型`, 'success')
-  } catch (err) {
-    addLog(`加载模型失败：${err.message}`, 'error')
-  }
-}
-
-// 加载当前模型
-const loadCurrentModel = async () => {
-  try {
-    const res = await api.getCurrentModel()
-    currentModel.value = res.current
-    selectedModel.value = res.current
-    addLog(`当前模型：${res.current}`, 'info')
-  } catch (err) {
-    addLog(`获取当前模型失败：${err.message}`, 'error')
-  }
-}
-
-// 切换模型
-const switchModel = async () => {
-  if (!selectedModel.value) return
-  try {
-    await api.switchModel(selectedModel.value)
-    currentModel.value = selectedModel.value
-    addLog(`切换到模型：${selectedModel.value}`, 'success')
-    
-    // 重新加载 Live2D 模型
-    await loadLive2dModel(selectedModel.value)
-  } catch (err) {
-    addLog(`切换模型失败：${err.message}`, 'error')
-  }
-}
-
-// 加载表情列表
-const loadExpressions = async () => {
-  try {
-    const res = await api.getExpressions()
-    expressions.value = res.expressions || []
-    addLog(`加载表情列表：${expressions.value.length} 个表情`, 'success')
-  } catch (err) {
-    addLog(`加载表情失败：${err.message}`, 'error')
-  }
-}
-
 // 设置表情
-const setExpression = async (expr) => {
-  try {
-    await api.setExpression(expr)
-    currentExpression.value = expr
-    addLog(`设置表情：${expr}`, 'success')
-    sendWs({ type: 'expression', expression: expr })
-  } catch (err) {
-    addLog(`设置表情失败：${err.message}`, 'error')
-  }
+const setExpression = (expr) => {
+  currentExpression.value = expr
+  addLog(`设置表情：${expr}`, 'success')
+  sendWs({ type: 'expression', expression: expr })
 }
 
 // 播放动作
-const playMotion = async (group, id) => {
-  try {
-    await api.playMotion(group, id)
-    addLog(`播放动作：${group}_${id}`, 'success')
-    sendWs({ type: 'motion', group, id })
-  } catch (err) {
-    addLog(`播放动作失败：${err.message}`, 'error')
-  }
+const playMotion = (group, id) => {
+  addLog(`播放动作：${group}_${id}`, 'success')
+  sendWs({ type: 'motion', group, id })
 }
 
 // 停止动作
-const stopMotion = async () => {
-  try {
-    await api.stopMotion()
-    addLog('停止动作', 'success')
-  } catch (err) {
-    addLog(`停止动作失败：${err.message}`, 'error')
-  }
+const stopMotion = () => {
+  addLog('停止动作', 'success')
+  sendWs({ type: 'motion', action: 'stop' })
 }
 
 // 更新口型同步
@@ -257,26 +238,107 @@ const updateLipsync = () => {
   sendWs({ type: 'lipsync', value: lipsyncValue.value })
 }
 
-// 加载 Live2D 模型（占位符）
-const loadLive2dModel = async (modelName) => {
-  if (!live2dRef.value) return
+// 处理模型上传
+const handleModelUpload = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
   
-  // 清空容器
-  live2dRef.value.innerHTML = ''
+  try {
+    addLog(`读取模型文件：${file.name}`, 'info')
+    modelName.value = file.name.replace('.model3.json', '')
+    
+    // 创建模型 URL
+    const modelUrl = URL.createObjectURL(file)
+    
+    // 初始化 PIXI 和 Live2D
+    await initPixi(null, modelUrl)
+    
+    addLog(`模型加载成功：${modelName.value}`, 'success')
+    loadingError.value = ''
+    modelLoaded.value = true
+    showUpload.value = false
+  } catch (err) {
+    addLog(`模型加载失败：${err.message}`, 'error')
+    loadingError.value = `加载失败：${err.message}`
+  }
+}
+
+// 初始化 PIXI 和 Live2D
+const initPixi = async (modelData, modelPath = null) => {
+  if (app) {
+    app.destroy()
+    app = null
+  }
   
-  // 创建占位符内容
-  const placeholder = document.createElement('div')
-  placeholder.className = 'live2d-placeholder'
-  placeholder.innerHTML = `
-    <div class="placeholder-content">
-      <div class="placeholder-icon">🎭</div>
-      <p>Live2D 模型视图</p>
-      <p class="placeholder-hint">模型：${modelName || '未选择'}</p>
-      <p class="placeholder-note">需要配置 Live2D 模型文件</p>
-    </div>
-  `
-  live2dRef.value.appendChild(placeholder)
-  addLog(`Live2D 视图已就绪：${modelName || '未选择模型'}`, 'info')
+  const container = live2dRef.value
+  if (!container) return
+  
+  // 创建 PIXI 应用
+  app = new PIXI.Application({
+    view: canvasRef.value,
+    width: container.clientWidth,
+    height: container.clientHeight,
+    transparent: true,
+    resizeTo: container,
+    backgroundColor: 0x000000,
+    backgroundAlpha: 0
+  })
+  
+  addLog('PIXI 初始化完成', 'success')
+  
+  try {
+    // 如果提供了模型路径，加载 Live2D 模型
+    if (modelPath) {
+      addLog('加载 Live2D 模型...', 'info')
+      
+      live2dModel = await Live2DModel.from(modelPath, {
+        autoInteract: true,
+        autoAnimate: true,
+        draggable: true,
+        hitArea: 'head'
+      })
+      
+      // 设置模型大小和位置
+      const scale = Math.min(
+        app.screen.width / live2dModel.width,
+        app.screen.height / live2dModel.height
+      ) * 0.8
+      live2dModel.scale.set(scale)
+      live2dModel.x = (app.screen.width - live2dModel.width * scale) / 2
+      live2dModel.y = (app.screen.height - live2dModel.height * scale) / 2
+      
+      app.stage.addChild(live2dModel)
+      
+      addLog('Live2D 模型加载成功', 'success')
+      modelLoaded.value = true
+    } else {
+      // 显示占位符
+      const graphics = new PIXI.Graphics()
+      graphics.beginFill(0x6366f1, 0.3)
+      graphics.drawEllipse(app.screen.width / 2, app.screen.height / 2, 150, 200)
+      graphics.endFill()
+      
+      const text = new PIXI.Text('Live2D 模型视图\n\n上传 .model3.json 文件\n以加载模型', {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fill: 0xffffff,
+        align: 'center',
+        wordWrap: true,
+        wordWrapWidth: 250
+      })
+      text.anchor.set(0.5)
+      text.x = app.screen.width / 2
+      text.y = app.screen.height / 2
+      
+      app.stage.addChild(graphics)
+      app.stage.addChild(text)
+      
+      addLog('等待用户上传模型...', 'info')
+    }
+  } catch (err) {
+    addLog(`模型加载失败：${err.message}`, 'error')
+    loadingError.value = `加载失败：${err.message}`
+  }
 }
 
 // 初始化
@@ -286,20 +348,29 @@ onMounted(async () => {
   // 连接 WebSocket
   connectWebSocket()
   
-  // 加载数据
-  await loadModels()
-  await loadCurrentModel()
-  await loadExpressions()
-  
-  // 加载 Live2D 模型
-  if (currentModel.value) {
-    await loadLive2dModel(currentModel.value)
+  // 尝试加载默认模型
+  try {
+    const response = await fetch('/models/default.model3.json')
+    if (response.ok) {
+      const modelData = await response.json()
+      await initPixi(modelData)
+      modelName.value = 'default'
+      modelLoaded.value = true
+    } else {
+      loadingError.value = '未找到默认模型，请上传模型文件'
+    }
+  } catch (err) {
+    loadingError.value = '未找到默认模型，请上传模型文件'
+    addLog('等待用户上传模型...', 'info')
   }
 })
 
 onUnmounted(() => {
   if (ws) {
     ws.close()
+  }
+  if (app) {
+    app.destroy()
   }
 })
 </script>
@@ -373,6 +444,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
 }
 
 .live2d-view {
@@ -386,6 +458,59 @@ onUnmounted(() => {
 .live2d-view canvas {
   max-width: 100%;
   max-height: 100%;
+}
+
+.loading-overlay, .error-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.loading-content, .error-content {
+  text-align: center;
+  color: #fff;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-content button {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.error-content button:hover {
+  background: #4f46e5;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
 }
 
 .control-panel {
@@ -414,6 +539,33 @@ onUnmounted(() => {
   color: #e2e8f0;
 }
 
+.file-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upload-btn {
+  padding: 0.75rem 1rem;
+  background: rgba(99, 102, 241, 0.5);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  background: rgba(99, 102, 241, 0.7);
+}
+
+.current-model {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -439,37 +591,6 @@ button:hover {
 button.active {
   background: rgba(99, 102, 241, 0.5);
   border-color: #6366f1;
-}
-
-.model-select {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-select {
-  flex: 1;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.875rem;
-}
-
-select option {
-  background: #1a1a2e;
-  color: #fff;
-}
-
-.refresh-btn {
-  padding: 0.75rem 1rem;
-}
-
-.current-model {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #94a3b8;
 }
 
 .slider-control {
@@ -521,38 +642,43 @@ select option {
 .log-output .warning { color: #f59e0b; }
 .log-output .info { color: #94a3b8; }
 
-.live2d-placeholder {
-  width: 100%;
-  height: 100%;
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 100;
 }
 
-.placeholder-content {
-  text-align: center;
+.modal {
+  background: #1a1a2e;
   padding: 2rem;
-  color: #94a3b8;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
 }
 
-.placeholder-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+.modal h2 {
+  margin: 0 0 1rem 0;
 }
 
-.placeholder-content p {
-  margin: 0.5rem 0;
+.modal input[type="file"] {
+  margin: 1rem 0;
+  width: 100%;
 }
 
-.placeholder-hint {
-  font-size: 1.25rem;
-  color: #e2e8f0;
-}
-
-.placeholder-note {
-  font-size: 0.875rem;
-  color: #64748b;
+.modal .close-btn {
   margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
 }
 </style>
